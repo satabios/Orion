@@ -4,11 +4,11 @@
 
 import torch
 import torch.nn.functional as F
-from mmcv.runner import load_checkpoint
+from mmcv.utils import load_checkpoint
 from mmcv.models import DETECTORS
 from mmcv.models.detectors.orion import Orion
 from mmcv.models.builder import build_loss
-from mmcv.utils.misc import load_model
+
 
 
 @DETECTORS.register_module()
