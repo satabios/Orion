@@ -214,7 +214,7 @@ class CombinedKDLoss(nn.Module):
             total_loss += vl_loss
             loss_dict['vl_distill_loss'] = vl_loss
         
-        loss_dict['total_distill_loss'] = total_loss
+        loss_dict['backbone_distill_loss'] = total_loss
         return total_loss, loss_dict
 
 

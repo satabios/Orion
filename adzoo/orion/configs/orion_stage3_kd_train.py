@@ -1,5 +1,6 @@
-# Knowledge Distillation Configuration for ORION Stage 3 Training
-# Based on orion_stage3_train.py with KD modifications
+# Knowledge Distillation Configuration for ORION EVA-L Backbone Training
+# Focus: Only train the student EVA-L backbone (8 heads) with KD from teacher EVA-L (16 heads)
+# All other components (neck, heads, LLM) are frozen and loaded from pre-trained model
 
 _base_ = ["../_base_/datasets/nus-3d.py",
           "../_base_/default_runtime.py"]
@@ -120,33 +121,34 @@ mix_qa_training = True
 
 # Knowledge Distillation Configuration
 kd_config = dict(
-    teacher_model_path='ckpt/orion/orion.pth',  # Path to fully trained teacher model
-    distillation_alpha=0.4,  # Weight for distillation loss (0.4 means 40% distillation, 60% task loss)
-    distillation_temperature=4.0,  # Temperature for soft targets
-    feature_distill_weight=0.3,  # Weight for feature-level distillation
-    attention_distill_weight=0.2,  # Weight for attention distillation
-    output_distill_weight=0.3,  # Weight for output distillation
-    vl_distill_weight=0.2,  # Weight for vision-language distillation
-    warmup_epochs=2,  # Number of epochs with higher distillation weight
-    warmup_alpha=0.6,  # Higher distillation weight during warmup
-    final_alpha=0.3,  # Final distillation weight after warmup
+    teacher_backbone_path='ckpt/orion/orion.pth',  # Full model path (will extract backbone)
+    distillation_alpha=0.7,  # Higher weight for backbone distillation (70% distillation, 30% task)
+    distillation_temperature=3.0,  # Lower temperature for tighter teacher following
+    feature_distill_weight=0.5,  # High weight for feature-level distillation
+    attention_distill_weight=0.3,  # Attention pattern transfer
+    output_distill_weight=0.2,  # Lower weight for output distillation
+    warmup_epochs=1,  # Shorter warmup since only training backbone
+    warmup_alpha=0.8,  # Very high distillation weight during warmup
+    final_alpha=0.6,  # Still high distillation weight after warmup
     pruning_ratio=0.5,  # 50% head reduction (16 -> 8 heads)
-    head_selection_strategy='magnitude'  # Head selection method
+    head_selection_strategy='magnitude',  # Head selection method
+    freeze_non_backbone=True,  # Freeze everything except backbone
 )
 
-# Student Model Configuration
+# Student Model Configuration (Backbone-only KD)
 model = dict(
-    type='OrionStudent',  # Use student model instead of base Orion
-    teacher_model_path=kd_config['teacher_model_path'],
+    type='OrionStudent',  # Use student model for backbone KD
+    teacher_backbone_path=kd_config['teacher_backbone_path'],
     distillation_alpha=kd_config['distillation_alpha'],
+    freeze_non_backbone=kd_config['freeze_non_backbone'],
     
-    # Distillation loss configuration
+    # Distillation loss configuration (focused on backbone features)
     distillation_loss=dict(
         type='CombinedKDLoss',
         feature_distill_weight=kd_config['feature_distill_weight'],
         attention_distill_weight=kd_config['attention_distill_weight'],
         output_distill_weight=kd_config['output_distill_weight'],
-        vl_distill_weight=kd_config['vl_distill_weight'],
+        vl_distill_weight=0.0,  # No VL distillation for backbone-only training
         temperature=kd_config['distillation_temperature']
     ),
     
@@ -349,34 +351,30 @@ data = dict(
     nonshuffler_sampler=dict(type='DistributedSampler'),
 )
 
-# Optimizer configuration with KD-specific learning rate
+# Optimizer configuration (only backbone parameters will be updated)
 optimizer = dict(
     type='AdamW',
-    lr=1e-4,  # Slightly lower LR for KD training
+    lr=2e-4,  # Higher LR since only training backbone
     paramwise_cfg=dict(
         custom_keys={
-            'img_backbone': dict(lr_mult=0.1),  # Lower LR for backbone
-            'sampling_offsets': dict(decay_mult=0.),
-            'reference_points': dict(decay_mult=0.),
-            'query_embed': dict(decay_mult=0.),
-            'lm_head': dict(lr_mult=1.0, decay_mult=0.),
-            'tokenizer': dict(lr_mult=1.0, decay_mult=0.),
+            'img_backbone': dict(lr_mult=1.0),  # Full LR for backbone (only trainable component)
+            # All other components are frozen, so LR doesn't matter
         }),
     weight_decay=0.01)
 
-optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))  # Lower grad clip for stability
 
-# Learning rate scheduler with warmup for KD
+# Learning rate scheduler
 lr_config = dict(
     policy='CosineAnnealing',
     warmup='linear',
-    warmup_iters=2000,  # Extended warmup for KD
-    warmup_ratio=1.0 / 3,
-    min_lr_ratio=1e-3)
+    warmup_iters=500,  # Shorter warmup for backbone-only training
+    warmup_ratio=1.0 / 10,
+    min_lr_ratio=1e-2)
 
-# Training configuration
-runner = dict(type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
-evaluation = dict(interval=num_iters_per_epoch*(num_epochs+1), pipeline=test_pipeline)
+# Training configuration (shorter since only training backbone)
+runner = dict(type='IterBasedRunner', max_iters=3 * num_iters_per_epoch)  # Only 3 epochs needed
+evaluation = dict(interval=num_iters_per_epoch, pipeline=test_pipeline)  # Evaluate every epoch
 find_unused_parameters = False
 checkpoint_config = dict(interval=num_iters_per_epoch, max_keep_ckpts=3)
 
@@ -390,14 +388,14 @@ log_config = dict(
 )
 
 # Load configuration 
-load_from = None  # Will load teacher weights during initialization
+load_from = 'ckpt/orion/orion.pth'  # Load full pre-trained model (non-backbone components will be frozen)
 resume_from = None
 
-# Custom hooks for KD training
+# Custom hooks for backbone-only KD training
 custom_hooks = [
     dict(
-        type='TeacherStudentHook',
-        teacher_model_path=kd_config['teacher_model_path'],
+        type='BackboneKDHook',
+        teacher_backbone_path=kd_config['teacher_backbone_path'],
         priority='NORMAL'
     )
 ]

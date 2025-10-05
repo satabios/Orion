@@ -1,20 +1,20 @@
-# ORION Knowledge Distillation with 50% Head Pruning
+# ORION Knowledge Distillation with 50% Head Pruning (Backbone-Only Training)
 
-This implementation provides Knowledge Distillation (KD) training for ORION with EVA-ViT head pruning, reducing the number of attention heads from 16 to 8 (50% pruning) while maintaining performance through teacher-student training.
+This implementation provides Knowledge Distillation (KD) training for ORION with EVA-ViT head pruning, reducing the number of attention heads from 16 to 8 (50% pruning). **Only the EVA-L backbone is trained**, while all other components (neck, detection heads, LLM components) are frozen.
 
 ## Overview
 
-### Architecture Changes
-- **Student Model**: EVA-ViT with 8 attention heads (reduced from 16)
-- **Teacher Model**: Original ORION with full 16 attention heads  
-- **Head Selection**: Magnitude-based importance scoring
-- **Weight Transfer**: Intelligent transfer of selected head weights
+### Training Strategy
+- **Teacher**: Full EVA-ViT with 16 attention heads (frozen)
+- **Student**: Pruned EVA-ViT with 8 attention heads (trainable)
+- **Frozen Components**: img_neck, pts_bbox_head, map_head, LLM components
+- **Training Focus**: Only the student backbone learns from teacher backbone via KD
 
-### Knowledge Distillation Strategy
-- **Feature Distillation**: Match intermediate feature representations
-- **Attention Distillation**: Transfer attention patterns from selected heads
-- **Output Distillation**: Soft target matching for final predictions
-- **Scheduled Training**: Higher distillation weight during warmup
+### Key Benefits
+- **Faster Training**: Only ~25% of model parameters are trainable
+- **Memory Efficient**: Reduced memory footprint during training
+- **Stable Training**: Pre-trained components remain unchanged
+- **Quick Convergence**: Backbone-only training converges in 2-3 epochs
 
 ## Implementation Files
 
@@ -61,37 +61,33 @@ loss_cls: 0.8234, loss_bbox: 0.2156, distill_loss: 0.1876, total_loss: 0.9123
 
 ## Configuration Details
 
-### KD Parameters
+### KD Parameters (Backbone-Focused)
 ```python
 kd_config = dict(
-    teacher_model_path='ckpt/orion/orion.pth',     # Teacher checkpoint
-    distillation_alpha=0.4,                        # KD loss weight
-    distillation_temperature=4.0,                  # Soft target temperature
-    feature_distill_weight=0.3,                    # Feature distillation
-    attention_distill_weight=0.2,                  # Attention distillation
-    output_distill_weight=0.3,                     # Output distillation
-    warmup_epochs=2,                               # Warmup period
-    warmup_alpha=0.6,                              # Higher KD weight during warmup
-    final_alpha=0.3,                               # Final KD weight
-    pruning_ratio=0.5,                             # 50% head reduction
+    teacher_backbone_path='ckpt/orion/orion.pth',    # Full model (extracts backbone)
+    distillation_alpha=0.7,                          # High KD weight (backbone focus)
+    distillation_temperature=3.0,                    # Tight teacher following
+    feature_distill_weight=0.5,                      # High feature distillation
+    attention_distill_weight=0.3,                    # Attention transfer
+    output_distill_weight=0.2,                       # Feature map matching
+    warmup_epochs=1,                                 # Short warmup
+    freeze_non_backbone=True,                        # Freeze non-backbone components
 )
 ```
 
-### Model Configuration
+### Model Configuration (Backbone-Only Training)
 ```python
 model = dict(
-    type='OrionStudent',                           # Use student model
+    type='OrionStudent',                             # Student model
+    teacher_backbone_path=kd_config['teacher_backbone_path'],
+    freeze_non_backbone=True,                        # Key: freeze everything else
     img_backbone=dict(
-        type='EVAViTStudent',                      # Pruned backbone
-        num_heads=8,                               # Student heads
-        teacher_num_heads=16,                      # Teacher heads
-        # ... other params same as original
+        type='EVAViTStudent',                        # Pruned backbone
+        num_heads=8,                                 # Student heads
+        teacher_num_heads=16,                        # Teacher heads
+        # ... other params loaded from pre-trained
     ),
-    distillation_loss=dict(
-        type='CombinedKDLoss',                     # Combined KD losses
-        # ... loss weights
-    ),
-    # ... rest same as original ORION
+    # All other components loaded from pre-trained and frozen
 )
 ```
 
@@ -125,23 +121,31 @@ analyze_pruning_impact(importance, pruning_ratios=[0.25, 0.5, 0.75])
 
 ## Training Process
 
-### Two-Phase Training
-1. **Warmup Phase** (Epochs 1-2):
-   - Higher distillation weight (α=0.6)
-   - Lower learning rate
-   - Focus on knowledge transfer
+### Backbone-Only Training
+1. **Initialization**:
+   - Load full pre-trained ORION model
+   - Extract and freeze all components except student backbone
+   - Load teacher EVA-L backbone (16 heads)
+   - Initialize student EVA-L backbone (8 heads) from teacher
 
-2. **Fine-tuning Phase** (Epochs 3-6):
-   - Lower distillation weight (α=0.3)
-   - Standard learning rate
-   - Balance task performance and efficiency
+2. **Training Loop**:
+   - Forward pass through student backbone → frozen components
+   - Forward pass through teacher backbone (frozen)
+   - Compute task loss (gradients only flow to student backbone)
+   - Compute backbone distillation loss
+   - Combined loss = 0.3 * task_loss + 0.7 * distillation_loss
 
-### Loss Function
+### Loss Function (Backbone-Focused)
 ```python
-total_loss = (1-α) * student_task_loss + α * distillation_loss
+total_loss = (1-α) * student_task_loss + α * backbone_distillation_loss
 
-distillation_loss = λ₁ * feature_loss + λ₂ * attention_loss + λ₃ * output_loss
+backbone_distillation_loss = λ₁ * feature_loss + λ₂ * attention_loss + λ₃ * feature_map_loss
 ```
+
+### Training Duration
+- **Total**: 3 epochs (much faster than full training)
+- **Warmup**: 1 epoch with α=0.8
+- **Fine-tuning**: 2 epochs with α=0.6
 
 ## Expected Results
 
@@ -151,13 +155,20 @@ distillation_loss = λ₁ * feature_loss + λ₂ * attention_loss + λ₃ * outp
 - **Memory Usage**: 25-40% reduction
 - **Task Performance**: <5% degradation expected
 
-### Training Logs
+### Training Logs (Backbone-Only)
 Monitor these key metrics during training:
-- `student_task_loss`: Original ORION losses
-- `feature_distill_loss`: Feature-level distillation
+- `task_loss`: Original ORION task loss (from frozen components)
+- `backbone_distill_loss`: Feature distillation between backbones
+- `feature_distill_loss`: Intermediate feature matching
 - `attention_distill_loss`: Attention pattern transfer
-- `output_distill_loss`: Soft target matching
-- `total_distill_loss`: Combined distillation loss
+- `total_loss`: Combined task + distillation loss
+
+Example log:
+```
+Iter [100/915] lr: 2.000e-04, eta: 1:15:23, time: 2.156, data_time: 0.089, memory: 8432,
+task_loss: 0.5234, backbone_distill_loss: 0.1876, feature_distill_loss: 0.0934, 
+attention_distill_loss: 0.0672, total_loss: 0.2882
+```
 
 ## Advanced Usage
 
@@ -252,6 +263,11 @@ If you use this KD implementation, please cite:
   year={2024}
 }
 ```
+
+## Repository
+
+Original ORION repository: https://github.com/xiaomi-mlab/Orion  
+This KD implementation: https://github.com/satabios/ORION
 
 ## Contact
 

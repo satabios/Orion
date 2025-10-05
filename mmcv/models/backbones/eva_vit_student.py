@@ -401,6 +401,9 @@ class EVAViTStudent(nn.Module):
             nn.init.normal_(self.pos_embed, std=0.02)
 
         self.frozen = frozen
+        # Placeholders for intermediate features for distillation
+        self.intermediate_features = []
+        self.last_features = None
 
     def _freeze_stages(self):
         if self.frozen:
@@ -437,8 +440,13 @@ class EVAViTStudent(nn.Module):
                 self.pos_embed, self.pretrain_use_cls_token, (x.shape[1], x.shape[2])
             ).to(x.dtype)
 
+        self.intermediate_features = []
         for blk in self.blocks:
             x = blk(x)   # b, h, w, c
+            # Store intermediate features for distillation
+            self.intermediate_features.append(x.permute(0, 3, 1, 2))
+
         x = x.permute(0, 3, 1, 2) # b, c, h, w 
-        
+        self.last_features = x
+
         return [x]
