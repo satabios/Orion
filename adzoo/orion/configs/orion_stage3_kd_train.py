@@ -440,12 +440,7 @@ data = dict(
 optimizer = dict(
     type='AdamW',
     lr=2e-4,  # Higher LR since only training backbone
-    paramwise_cfg=dict(
-        custom_keys={
-            'img_backbone': dict(lr_mult=1.0),  # Full LR for backbone (only trainable component)
-            # All other components are frozen, so LR doesn't matter
-        }),
-    weight_decay=0.01)
+    weight_decay=0.01) # paramwise_cfg is not needed as only the backbone is trainable
 
 optimizer_config = dict(grad_clip=dict(max_norm=10, norm_type=2))  # Lower grad clip for stability
 
