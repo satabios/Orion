@@ -3,6 +3,9 @@ from .iou_loss import (BoundedIoULoss, CIoULoss, DIoULoss, GIoULoss, IoULoss,
                        bounded_iou_loss, iou_loss)
 from .smooth_l1_loss import L1Loss, SmoothL1Loss, l1_loss, smooth_l1_loss
 from .map_loss import *
+from .kd_losses import (FeatureDistillationLoss, AttentionDistillationLoss, 
+                        OutputDistillationLoss, VisionLanguageDistillationLoss,
+                        CombinedKDLoss, KDScheduledLoss)
 
 # __all__ = [
 #     'accuracy', 'Accuracy', 'cross_entropy', 'binary_cross_entropy',

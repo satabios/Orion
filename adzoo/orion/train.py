@@ -223,14 +223,29 @@ def main():
             if hasattr(datasets[0], 'PALETTE') else None)
     # add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES
-    custom_train_model(
-        model,
-        datasets,
-        cfg,
-        distributed=distributed,
-        validate=(not args.no_validate),
-        timestamp=timestamp,
-        meta=meta)
+    
+    # Check if this is KD training
+    if cfg.model.get('type') == 'OrionStudent':
+        # Use KD training function
+        from adzoo.orion.apis.train_kd import custom_train_model_kd
+        custom_train_model_kd(
+            model,
+            datasets,
+            cfg,
+            distributed=distributed,
+            validate=(not args.no_validate),
+            timestamp=timestamp,
+            meta=meta)
+    else:
+        # Use standard training function
+        custom_train_model(
+            model,
+            datasets,
+            cfg,
+            distributed=distributed,
+            validate=(not args.no_validate),
+            timestamp=timestamp,
+            meta=meta)
 
 
 if __name__ == '__main__':
