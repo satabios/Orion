@@ -6,16 +6,21 @@ A simple script to load the original ORION model with pre-trained weights.
 import os
 import sys
 import torch
-from mmcv import Config
-from mmcv.models import build_model
-from mmcv.runner import load_checkpoint
 
 # Add project root to Python path to allow local imports
-project_root = os.path.abspath(os.path.dirname(__file__))
+# This assumes the script is run from the project root
+project_root = os.path.abspath('.')
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-def load_orion_model(config_path, checkpoint_path):
+# Import mmcv components AFTER setting the path
+# This ensures all custom modules are registered correctly
+import mmcv
+from mmcv import Config
+from mmcv.models import build_model
+from mmcv.utils import load_checkpoint
+
+def load_orion_model(config_path, checkpoint_path, device='cpu'):
     """
     Loads the ORION model from a config file and populates it with weights
     from a checkpoint file.
@@ -23,6 +28,7 @@ def load_orion_model(config_path, checkpoint_path):
     Args:
         config_path (str): Path to the model configuration file.
         checkpoint_path (str): Path to the .pth weight file.
+        device (str): The device to load the model onto ('cpu' or 'cuda').
 
     Returns:
         torch.nn.Module: The loaded model.
@@ -44,11 +50,12 @@ def load_orion_model(config_path, checkpoint_path):
         # We use the student config but ensure the model type is the original 'Orion'
         cfg.model.type = 'Orion'
         model = build_model(cfg.model, train_cfg=cfg.get('train_cfg'), test_cfg=cfg.get('test_cfg'))
+        model.to(device)
         print(f"✅ Model '{type(model).__name__}' built successfully.")
 
         # 3. Load the weights from the checkpoint
-        load_checkpoint(model, checkpoint_path, map_location='cpu', strict=False)
-        print(f"✅ Weights loaded from: {checkpoint_path}")
+        load_checkpoint(model, checkpoint_path, map_location=device, strict=False)
+        print(f"✅ Weights loaded from: {checkpoint_path} to device: {device}")
 
         # 4. Set the model to evaluation mode
         model.eval()
