@@ -328,13 +328,26 @@ map_file = 'data/Chat-B2D/map_infos.pkl'
 
 file_client_args = dict(backend='disk')
 
-# Training pipeline (same as original)
+# Training pipeline (matching original orion_stage3_train.py)
 train_pipeline = [
-    dict(type='LoadMultiViewImageFromFilesInCeph', to_float32=True, file_client_args=file_client_args, img_root=data_root),
-    dict(type='PhotoMetricDistortionMultiViewImage'),
-    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=True),
-    dict(type='LoadTrajData'),
-    dict(type='LoadMapData', map_fixed_ptsnum_per_line=map_fixed_ptsnum_per_gt_line),
+    dict(type="LoadMultiViewImageFromFilesInCeph", to_float32=True),
+    dict(type="PhotoMetricDistortionMultiViewImage"),  # 数据增强，逐个对图像应用光度失真，每次变换都以50%的概率应用
+    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=True, with_light_state=True),
+    dict(type='VADObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='VADObjectNameFilter', classes=class_names),
+    
+    dict(type='LoadAnnoatationVQA', 
+        base_desc_path='./data/chat-B2D/train',
+        tokenizer=None,  # Disabled for backbone-only KD training
+        max_length=2048, 
+        use_gen_token=False,  # Disabled for backbone-only KD training
+        planning_qa_ratio=0.8,
+        mix_qa_training=mix_qa_training,
+    ),
+
+    # dict(type='RandomScaleImageMultiViewImage', scales=[0.8]), 保持640
+    # dict(type='ResizeMultiview3D', img_scale=(640, 640), keep_ratio=False, multiscale_mode='value'),
+    dict(type='ResizeCropFlipRotImage', data_aug_conf=ida_aug_conf, training=True),
     dict(type='ResizeMultiview3D', img_scale=(640, 640), keep_ratio=False, multiscale_mode='value'),
     dict(type="PadMultiViewImage", size_divisor=32),
     dict(type="NormalizeMultiviewImage", **img_norm_cfg),
@@ -343,12 +356,24 @@ train_pipeline = [
          keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'ego_his_trajs','input_ids','gt_attr_labels', 'ego_fut_trajs', 'ego_fut_masks','ego_fut_cmd', 'ego_lcf_feat','vlm_labels','can_bus', 'traffic_state_mask', 'traffic_state']+collect_keys),
 ]
 
-# Test pipeline (same as original)
+# Test pipeline (matching original orion_stage3_train.py)
 test_pipeline = [
-    dict(type='LoadMultiViewImageFromFilesInCeph', to_float32=True),
-    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=True),
-    dict(type='LoadTrajData'),
-    dict(type='LoadMapData', map_fixed_ptsnum_per_line=map_fixed_ptsnum_per_gt_line),
+    dict(type="LoadMultiViewImageFromFilesInCeph", to_float32=True),
+    dict(type="PhotoMetricDistortionMultiViewImage"),
+    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_attr_label=True, with_light_state=True),
+    dict(type='VADObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='VADObjectNameFilter', classes=class_names),
+    
+    dict(type='LoadAnnoatationVQA', 
+        base_desc_path='./data/chat-B2D/val',
+        tokenizer=None,
+        max_length=2048, 
+        use_gen_token=False,
+        planning_qa_ratio=0.8,
+        mix_qa_training=mix_qa_training,
+    ),
+
+    dict(type='ResizeCropFlipRotImage', data_aug_conf=ida_aug_conf, training=False),
     dict(type='ResizeMultiview3D', img_scale=(640, 640), keep_ratio=False, multiscale_mode='value'),
     dict(type="PadMultiViewImage", size_divisor=32),
     dict(type="NormalizeMultiviewImage", **img_norm_cfg),

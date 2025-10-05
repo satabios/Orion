@@ -85,12 +85,17 @@ Successfully implemented **Knowledge Distillation (KD) for ORION** autonomous dr
 4. ✅ **Dataset Registry Error**
    - Changed from `ChatB2D_Dataset` to `B2DOrionDataset`
 
+5. ✅ **Pipeline Configuration Error**
+   - Removed non-existent `LoadTrajData` component
+   - Matched original `orion_stage3_train.py` pipeline exactly
+   - Trajectory data loaded through dataset, not separate pipeline component
+
 ### Code Issues
-5. ✅ **student_cfg AttributeError**
+6. ✅ **student_cfg AttributeError**
    - Simplified teacher weight loading
    - Direct checkpoint loading instead of model building
 
-6. ✅ **freeze_non_backbone_components Method Signature**
+7. ✅ **freeze_non_backbone_components Method Signature**
    - Fixed to operate on `self` instead of requiring model argument
 
 ## 📈 Training Configuration
@@ -183,8 +188,7 @@ python adzoo/orion/train.py adzoo/orion/configs/orion_stage3_kd_train.py --gpus 
 
 ### Current Limitations
 1. **Teacher Checkpoint**: Requires `ckpt/orion/orion.pth` for actual training
-2. **Dataset Pipeline**: Some custom pipelines (`LoadTrajData`) not fully implemented in test environment
-3. **Full Training**: Needs complete dataset setup for end-to-end training
+2. **Full Training**: Needs complete dataset setup (`./data/chat-B2D/`) for end-to-end training
 
 ### Future Improvements
 1. **Dynamic Head Selection**: Implement gradient-based head selection during training
