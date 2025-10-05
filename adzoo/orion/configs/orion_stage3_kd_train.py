@@ -100,6 +100,13 @@ NameMapping = {
 }
 
 class_names = ['car','van','truck','bicycle','traffic_sign','traffic_cone','traffic_light','pedestrian']
+
+# Additional variables required by ORION (same as original)
+use_memory = True
+use_gen_token = True
+use_col_loss = True
+collect_keys = ['lidar2img', 'cam_intrinsic', 'timestamp', 'ego_pose', 'ego_pose_inv', 'command']
+
 input_modality = dict(
     use_lidar=False,
     use_camera=True,
@@ -189,26 +196,26 @@ model = dict(
         frozen=False,
     ), 
     
-    img_neck=dict(
-        type='FPN',
-        in_channels=[1024],
-        out_channels=_dim_,
-        start_level=0,
-        add_extra_convs='on_output',
-        num_outs=1,
-        relu_before_extra_convs=True),
-    
     pts_bbox_head=dict(
         type='OrionHead',
-        num_classes=len(class_names),
-        in_channels=_dim_,
+        num_classes=9,  # Should be 9 like original, not len(class_names)
+        in_channels=1024,  # Should be 1024, not _dim_
         out_dims=4096,
-        memory_len=600,
+        num_query=600,  # Should be 600, not 256
         with_mask=True,
+        memory_len=600,
         topk_proposals=300,
-        num_query=256,
-        num_reg_fcs=2,
+        num_propagated=300,  # Missing from our config
+        num_extra=256,
+        n_control=11,
+        match_with_velo=False,  # Missing from our config
+        pred_traffic_light_state=True,  # Missing from our config
         use_col_loss=use_col_loss,
+        use_memory=use_memory,  # Missing from our config
+        scalar=10,  # Missing from our config
+        noise_scale=1.0,  # Missing from our config
+        dn_weight=1.0,  # Missing from our config
+        split=0.75,  # Missing from our config
         transformer=dict(
             type='PETRTemporalTransformer',
             input_dimension=_dim_,
