@@ -125,9 +125,9 @@ def test_model_building():
         print("  • Backbone-only training configured correctly")
         print("  • Knowledge Distillation setup complete")
         print(f"  • Ready for training with {trainable_params:,} trainable parameters")
-        print("\nNote: Teacher checkpoint 'ckpt/orion/orion.pth' not found.")
-        print("      Model initialized with random weights for now.")
-        print("      Provide checkpoint path for actual KD training.")
+        print("\nNote: Using teacher checkpoint at 'ckpts/orion/orion.pth'")
+        print("      If not found, model will initialize with random weights.")
+        print("      Ensure checkpoint exists for actual KD training.")
         
         return True
         

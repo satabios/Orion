@@ -128,7 +128,7 @@ mix_qa_training = False  # Disable QA training for backbone-only KD
 
 # Knowledge Distillation Configuration
 kd_config = dict(
-    teacher_backbone_path='ckpt/orion/orion.pth',  # Full model path (will extract backbone)
+    teacher_backbone_path='ckpts/orion/orion.pth',  # Full model path (will extract backbone)
     distillation_alpha=0.7,  # Higher weight for backbone distillation (70% distillation, 30% task)
     distillation_temperature=3.0,  # Lower temperature for tighter teacher following
     feature_distill_weight=0.5,  # High weight for feature-level distillation

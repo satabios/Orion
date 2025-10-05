@@ -15,7 +15,7 @@ Successfully implemented **Knowledge Distillation (KD) for ORION** autonomous dr
 
 ### Teacher Model
 - **Backbone**: Full EVA-ViT Large with **16 attention heads**
-- **Checkpoint**: `ckpt/orion/orion.pth`
+- **Checkpoint**: `ckpts/orion/orion.pth`
 - **Usage**: Weight transfer and feature distillation only
 
 ## 🔧 Key Implementation Files
@@ -128,7 +128,7 @@ lr_config = dict(
 ### KD Configuration
 ```python
 kd_config = dict(
-    teacher_backbone_path='ckpt/orion/orion.pth',
+    teacher_backbone_path='ckpts/orion/orion.pth',
     distillation_alpha=0.7,  # 70% distillation, 30% task
     distillation_temperature=3.0,
     feature_distill_weight=0.5,
@@ -187,7 +187,7 @@ python adzoo/orion/train.py adzoo/orion/configs/orion_stage3_kd_train.py --gpus 
 ## 📝 Notes
 
 ### Current Limitations
-1. **Teacher Checkpoint**: Requires `ckpt/orion/orion.pth` for actual training
+1. **Teacher Checkpoint**: Uses `ckpts/orion/orion.pth` for weight transfer
 2. **Full Training**: Needs complete dataset setup (`./data/chat-B2D/`) for end-to-end training
 
 ### Future Improvements
