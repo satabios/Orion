@@ -58,18 +58,18 @@ class OrionStudent(Orion):
         if count > 0:
             print(f"  - Froze {count} parameters under '{prefix}'")
 
-    def freeze_non_backbone_components(self, model):
+    def freeze_non_backbone_components(self):
         """Freeze all components except the student backbone."""
-        if not self.freeze_non_backbone or not hasattr(model, 'img_backbone'):
+        if not self.freeze_non_backbone:
             return
             
         print("Freezing non-backbone components...")
         # Freeze everything first
-        for param in model.parameters():
+        for param in self.parameters():
             param.requires_grad = False
 
         # Unfreeze the student backbone
-        for param in model.img_backbone.parameters():
+        for param in self.img_backbone.parameters():
             param.requires_grad = True
 
         print("Non-backbone components frozen. Only student backbone will be trained.")
