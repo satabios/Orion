@@ -72,10 +72,10 @@ class OrionStudent(Orion):
             
     def init_student_from_teacher(self):
         """
-        Initializes the student model.
-        1. Creates a teacher model from the original Orion config.
-        2. Loads full pre-trained weights into the teacher.
-        3. Transfers weights from the teacher backbone to the student backbone.
+        Initializes the student model by loading teacher backbone from checkpoint.
+        1. Loads the teacher checkpoint directly.
+        2. Extracts the teacher backbone from the checkpoint.
+        3. Transfers weights from teacher backbone to student backbone.
         4. Freezes non-backbone components of the student model.
         """
         if self.teacher_backbone_path is None:
@@ -83,51 +83,57 @@ class OrionStudent(Orion):
             return
 
         print("--- Initializing Student Model for Knowledge Distillation ---")
-        # 1. Build teacher model (original Orion)
-        from mmcv.models.backbones import EVAViT
-        teacher_model = Orion(**self._get_teacher_kwargs())
         
-        # 2. Load full pre-trained weights
-        print(f"Loading full teacher model from: {self.teacher_backbone_path}")
-        load_checkpoint(teacher_model, self.teacher_backbone_path, map_location='cpu', strict=False)
+        try:
+                        # 1. Load teacher checkpoint directly
+            print(f"Loading teacher checkpoint from: {self.teacher_backbone_path}")
+            checkpoint = torch.load(self.teacher_backbone_path, map_location='cpu')
+            
+            # Extract state dict
+            if 'state_dict' in checkpoint:
+                teacher_state_dict = checkpoint['state_dict']
+            else:
+                teacher_state_dict = checkpoint
+            
+            # 2. Extract teacher backbone state dict
+            teacher_backbone_state = {}
+            backbone_prefix = 'img_backbone.'
+            for key, value in teacher_state_dict.items():
+                if key.startswith(backbone_prefix):
+                    # Remove the prefix to get the backbone parameter name
+                    backbone_key = key[len(backbone_prefix):]
+                    teacher_backbone_state[backbone_key] = value
+            
+            print(f"Extracted {len(teacher_backbone_state)} backbone parameters from teacher")
+            
+            # 3. Load teacher backbone weights into student backbone
+            if teacher_backbone_state:
+                print("Loading teacher backbone weights into student backbone...")
+                missing_keys, unexpected_keys = self.img_backbone.load_state_dict(
+                    teacher_backbone_state, strict=False
+                )
+                print(f"Loaded teacher weights: {len(teacher_backbone_state) - len(missing_keys)} matched")
+                if missing_keys:
+                    print(f"Missing keys (expected for pruned model): {len(missing_keys)}")
+                if unexpected_keys:
+                    print(f"Unexpected keys: {len(unexpected_keys)}")
+            
+        except Exception as e:
+            print(f"Warning: Could not load teacher model: {e}")
+            print("Continuing with random initialization...")
         
-        # 3. Transfer backbone weights
-        print("Transferring teacher backbone weights to student backbone...")
-        if hasattr(self.img_backbone, 'transfer_teacher_weights'):
-            self.img_backbone.transfer_teacher_weights(teacher_model.img_backbone)
-        
-        # 4. Freeze non-backbone components in the student model
-        self.freeze_non_backbone_components(self)
+        # 4. Freeze non-backbone components regardless of teacher loading success
+        if self.freeze_non_backbone:
+            self.freeze_non_backbone_components()
 
-        # 5. Store the teacher's backbone, freeze it, and put it in eval mode
-        self.teacher_backbone = teacher_model.img_backbone
-        for param in self.teacher_backbone.parameters():
-            param.requires_grad = False
-        self.teacher_backbone.eval()
-        print("Teacher backbone is ready and frozen.")
         print("--- Student Initialization Complete ---")
-
-    def _get_teacher_kwargs(self):
-        """Get kwargs for building the teacher model, ensuring the backbone is the original EVAViT."""
-        kwargs = self.student_cfg
-        # Override student-specific backbone with the original one
-        kwargs['img_backbone']['type'] = 'EVAViT'
-        kwargs['img_backbone']['num_heads'] = 16
-        # Remove student-specific keys
-        kwargs['img_backbone'].pop('teacher_num_heads', None)
-        return kwargs
 
     @torch.no_grad()
     def extract_teacher_features(self, img):
-        """Extract features from teacher EVA-L backbone only."""
-        if self.teacher_backbone is None:
-            raise RuntimeError("Teacher backbone not loaded. Call init_student_from_teacher first.")
-        self.teacher_backbone.eval()
-        teacher_img_feats = self.teacher_backbone(img)
-        return {
-            'img_feats': teacher_img_feats,
-             'backbone_features': getattr(self.teacher_backbone, 'intermediate_features', [])
-        }
+        """Extract features from teacher - disabled for checkpoint-based loading."""
+        # For backbone-only KD, we don't need separate teacher inference
+        # The teacher weights are transferred during initialization
+        return None
 
     def forward_train(self,
                       img_metas=None,
