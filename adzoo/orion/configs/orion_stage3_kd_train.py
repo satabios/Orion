@@ -120,11 +120,11 @@ num_gpus = 32
 batch_size = 4
 num_iters_per_epoch = 234769 // (num_gpus * batch_size)
 num_epochs = 6
-llm_path = './ckpts/pretrain_qformer/'
-use_gen_token = True
+llm_path = None  # Disable LLM components for backbone-only training
+use_gen_token = False  # Disable for backbone-only training
 use_col_loss = True
 collect_keys = ['lidar2img', 'cam_intrinsic', 'timestamp', 'ego_pose', 'ego_pose_inv', 'command']
-mix_qa_training = True
+mix_qa_training = False  # Disable QA training for backbone-only KD
 
 # Knowledge Distillation Configuration
 kd_config = dict(
@@ -162,9 +162,9 @@ model = dict(
     save_path='./results_planning_kd/',
     use_grid_mask=True,
     frozen=False,
-    use_lora=True,
-    tokenizer=llm_path,
-    lm_head=llm_path,
+    use_lora=False,  # Disable LoRA for backbone-only training
+    tokenizer=None,  # Disable tokenizer for backbone-only training
+    lm_head=None,    # Disable LM head for backbone-only training
     use_gen_token=use_gen_token,
     use_diff_decoder=False,
     use_col_loss=use_col_loss,
