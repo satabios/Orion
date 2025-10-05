@@ -147,8 +147,15 @@ kd_config = dict(
 python test_orion_student.py
 ```
 
+### Before Training: Verify Configuration
+```bash
+# Verify config is correct (no LoadTrajData errors)
+python verify_config.py
+```
+
 ### Training Command
 ```bash
+# Multi-GPU training (4 GPUs)
 bash adzoo/orion/orion_dist_train.sh adzoo/orion/configs/orion_stage3_kd_train.py 4
 ```
 
@@ -156,6 +163,9 @@ bash adzoo/orion/orion_dist_train.sh adzoo/orion/configs/orion_stage3_kd_train.p
 ```bash
 python adzoo/orion/train.py adzoo/orion/configs/orion_stage3_kd_train.py --gpus 1
 ```
+
+### If Training on Remote Server
+See `QUICK_FIX.md` for detailed instructions on syncing files and clearing cache.
 
 ## 📊 Expected Results
 
