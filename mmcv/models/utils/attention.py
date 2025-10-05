@@ -16,11 +16,22 @@ from torch.nn.functional import linear
 
 from einops import rearrange
 from mmcv.utils import auto_fp16
-# for H20 flash-attn-2.7.0.post2 is ok
-from flash_attn.flash_attn_interface import flash_attn_varlen_kvpacked_func
-# for A800/A100
-# from flash_attn.flash_attn_interface import flash_attn_unpadded_kvpacked_func
-from flash_attn.bert_padding import unpad_input, pad_input, index_first_axis
+
+# Try to import flash attention - make it optional
+try:
+    # for H20 flash-attn-2.7.0.post2 is ok
+    from flash_attn.flash_attn_interface import flash_attn_varlen_kvpacked_func
+    # for A800/A100
+    # from flash_attn.flash_attn_interface import flash_attn_unpadded_kvpacked_func
+    from flash_attn.bert_padding import unpad_input, pad_input, index_first_axis
+    HAS_FLASH_ATTN = True
+except ImportError:
+    print("Warning: flash_attn not available. Will use standard attention implementation.")
+    HAS_FLASH_ATTN = False
+    flash_attn_varlen_kvpacked_func = None
+    unpad_input = None
+    pad_input = None
+    index_first_axis = None
 
 
 def _in_projection_packed(q, k, v, w, b = None):
@@ -59,6 +70,13 @@ class FlashAttention(nn.Module):
             kv: The tensor containing the key, and value. (B, S, 2, H, D) 
             key_padding_mask: a bool tensor of shape (B, S)
         """
+        if not HAS_FLASH_ATTN:
+            raise RuntimeError(
+                "FlashAttention is not available. Please install flash-attn:\n"
+                "  pip install flash-attn --no-build-isolation\n"
+                "Or see FLASH_ATTN_FIX.md for alternative solutions."
+            )
+        
         assert q.dtype in [torch.float16, torch.bfloat16] and kv.dtype in [torch.float16, torch.bfloat16]
         assert q.is_cuda and kv.is_cuda
         assert q.shape[0] == kv.shape[0] and q.shape[-2] == kv.shape[-2] and q.shape[-1] == kv.shape[-1]

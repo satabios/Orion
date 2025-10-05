@@ -883,13 +883,20 @@ class LoadAnnoatationVQA():
             mix_qa_training=False,
             ):
         
-        self.tokenizer =  AutoTokenizer.from_pretrained(tokenizer,
-                                            model_max_length=max_length,
-                                            padding_side="right",
-                                            use_fast=False,
-                                            )
+        # Handle None tokenizer for backbone-only training
+        if tokenizer is None:
+            self.tokenizer = None
+            self.use_tokenizer = False
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(tokenizer,
+                                                model_max_length=max_length,
+                                                padding_side="right",
+                                                use_fast=False,
+                                                )
+            self.tokenizer.pad_token = self.tokenizer.unk_token
+            self.use_tokenizer = True
+        
         self.n_gen = n_gen
-        self.tokenizer.pad_token = self.tokenizer.unk_token
         self.planning_qa_only = planning_qa_only
         self.planning_qa_last = planning_qa_last
         self.base_desc_path = base_desc_path
@@ -1007,6 +1014,13 @@ class LoadAnnoatationVQA():
         return answer
 
     def __call__(self, results):
+        # If tokenizer is disabled (backbone-only training), skip VQA processing
+        if not self.use_tokenizer or self.tokenizer is None:
+            # Provide dummy values to satisfy the pipeline
+            results['input_ids'] = torch.zeros(1, dtype=torch.long)
+            results['vlm_labels'] = torch.zeros(1, dtype=torch.long)
+            return results
+        
         traj = None
         prompt = f"You are driving a car."
         sources= []
