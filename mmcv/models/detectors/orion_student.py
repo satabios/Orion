@@ -3,6 +3,7 @@
 # ------------------------------------------------------------------------
 
 import torch
+import copy
 import torch.nn.functional as F
 from mmcv.utils import load_checkpoint
 from mmcv.models import DETECTORS
@@ -27,7 +28,10 @@ class OrionStudent(Orion):
                  selected_heads_per_layer=None,
                  freeze_non_backbone=True,  # Freeze everything except backbone
                  **kwargs): 
+        # Store a copy of the student's configuration to build the teacher model later
+        self.student_cfg = copy.deepcopy(kwargs)
         super().__init__(**kwargs)
+
         
         self.teacher_backbone_path = teacher_backbone_path
         self.teacher_backbone = None  # Only load teacher backbone, not full model
