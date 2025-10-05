@@ -318,7 +318,7 @@ model = dict(
                 pc_range=point_cloud_range))))
 
 # Dataset configuration (same as original)
-dataset_type = 'ChatB2D_Dataset'
+dataset_type = 'B2DOrionDataset'  # Correct dataset for ORION training
 data_root = 'data/Chat-B2D/'
 ann_file_train = 'data/Chat-B2D/chat_b2d_train_infos.pkl'
 ann_file_val = 'data/Chat-B2D/chat_b2d_val_infos.pkl'
