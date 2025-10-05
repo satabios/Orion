@@ -1,0 +1,21 @@
+#!/bin/bash
+# URGENT: Run this on your training server to sync the tokenizer fix
+
+echo "=========================================="
+echo "⚠️  URGENT FIX NEEDED"
+echo "=========================================="
+echo ""
+echo "Your server is still using OLD code that doesn't handle tokenizer=None."
+echo "You need to pull the latest changes NOW."
+echo ""
+echo "Run these commands on your training server:"
+echo ""
+echo "cd /local/mnt/workspace/users/sathya/projects/Orion-KD/Orion"
+echo "git pull origin main"
+echo "find . -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null"
+echo "find . -type f -name '*.pyc' -delete"
+echo ""
+echo "=========================================="
+echo ""
+echo "After running these commands, the error will be fixed!"
+echo ""
